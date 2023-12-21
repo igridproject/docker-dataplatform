@@ -1,0 +1,38 @@
+version: '3'
+services:
+  grafana:
+    image: "${GRAFANA_IMG:-grafana/grafana}"
+    container_name: grafana
+    restart: always
+    volumes:
+     - ${VOLUME:-./volume}/grafana-data:/var/lib/grafana
+    environment:
+     - "GF_SERVER_DOMAIN=${GF_SERVER_DOMAIN}"
+     - "GF_SERVER_ROOT_URL=${GF_SERVER_ROOT_URL}"
+     - "GF_AUTH_ANONYMOUS_ENABLED=${GF_AUTH_ANONYMOUS_ENABLED}"
+     - "GF_AUTH_ANONYMOUS_ORG_NAME=${GF_AUTH_ANONYMOUS_ORG_NAME}"
+    ports:
+     - "3030:3000"
+    user: root
+    networks:
+       bsnet:
+          aliases:
+             - grafana-server
+  influxdb:
+    image: "${INFLUX_IMG:-influxdb}"
+    container_name: influxdb
+    restart: always
+    volumes:
+     - ${VOLUME:-./volume}/influxdb:/var/lib/influxdb
+    ports:
+     - "8083:8083"
+     - "8086:8086"
+    networks:
+       bsnet:
+          aliases:
+             - influx-server
+networks:
+   bsnet:
+         external:
+            name: ${NETWORK_NAME:-bdsnet}
+

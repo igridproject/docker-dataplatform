@@ -1,0 +1,23 @@
+version: '3'
+services:
+  edgenode01:
+    image: "${BSEDGE_IMG}"
+    container_name: bs_edgenode01
+    restart: always
+    networks:
+     - bsnet
+    ports:
+     - "20980:19980"
+     - "20080:19080"
+     - "20180:19180"
+    environment:
+     - "BS_SECRET=${BS_SECRET}"
+     - "BS_NUM_PROCESSOR=${BSEDGE_NUM_PROCESSOR}"
+     - "BSCONFIG_MQTT_URL=mqtt://rabbitmq-server"
+    volumes:
+     - ${VOLUME}/edgenode01/data:/var/bigstream/data
+     - ${VOLUME}/edgenode01/memsdata:/app/bigstream-edge/memsdata
+networks:
+  bsnet:
+      external:
+         name: ${NETWORK_NAME:-bdsnet}

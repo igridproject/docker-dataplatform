@@ -1,0 +1,50 @@
+version: '3'
+services:
+  bigstream:
+    image: "${BIGSTREAM_IMG}"
+    container_name: bs_bigstream
+    restart: always
+    networks:
+     - bsnet
+    ports:
+     - "19980:19980"
+     - "19080:19080"
+     - "19180:19180"
+     - "19150:19150/udp"
+    environment:
+     - "BS_NUM_WORKER=${BS_NUM_WORKER}"
+     - "BSCONFIG_SECRET_TEXT=${BS_SECRET}"
+     - "BSCONFIG_KEYSTORE_DIR=${BSCONFIG_KEYSTORE_DIR}"
+    volumes:
+     - ${VOLUME}/bigstream/data:/var/bigstream/data
+     - "./conf/acl.json:/app/node-bigstream/conf/acl.json"
+  redis:
+    image: "redis:${REDIS_TAG}"
+    command: redis-server --appendonly yes
+    container_name: bs_redis_server
+    restart: always
+    networks:
+       bsnet:
+          aliases:
+             - redis-server
+    ports:
+     - "6379:6379"
+    volumes:
+     - ${VOLUME}/redis/data:/data
+  rabbitmq:
+    image: "igridproject/rabbitmq:mqtt"
+    command: rabbitmq-server --hostname rabbitmq-server
+    container_name: bs_rabbitmq_server
+    restart: always
+    networks:
+       bsnet:
+          aliases:
+             - rabbitmq-server
+    ports:
+     - "5672:5672"
+     - "1883:1883"
+     - "15675:15675"
+networks:
+  bsnet:
+      external:
+         name: ${NETWORK_NAME:-bsnet}

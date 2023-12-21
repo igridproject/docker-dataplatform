@@ -1,0 +1,39 @@
+version: '3.1'
+
+services:
+
+  mongo:
+    container_name: mongo-server
+    image: mongo
+    restart: always
+    volumes:
+      - ${VOLUME:-./volume}/mongo-data:/data/db 
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: "P@ssw0rd"
+
+  mongo-express:
+    container_name: mongo-express
+    image: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: "P@ssw0rd"
+
+  rest-on-mongo:
+    container_name: mongo-api
+    image: rest-on-mongo
+    restart: always
+    ports:
+      - 8000:8000
+    environment:
+      SERVER: "mongodb://root:P%40ssw0rd@mongo-server"
+      DB: "bsmongo"
+
+networks:
+  default:
+      external:
+          name: ${NETWORK_NAME:-bsnet}
+            
