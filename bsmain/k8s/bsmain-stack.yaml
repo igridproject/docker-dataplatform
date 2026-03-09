@@ -1,0 +1,243 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bigstream-acl
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: bigstream
+data:
+  acl.json: |
+    [
+        {"accept":true}
+    ]
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bigstream-secret
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: bigstream
+type: Opaque
+stringData:
+  bsSecret: "<replace-with-real-secret>"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bigstream-data
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: bigstream
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bigstream
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: bigstream
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bigstream
+  template:
+    metadata:
+      labels:
+        app: bigstream
+        app.kubernetes.io/name: bsmain
+        app.kubernetes.io/component: bigstream
+    spec:
+      containers:
+        - name: bigstream
+          image: ${BIGSTREAM_IMG}
+          ports:
+            - name: tcp-19980
+              containerPort: 19980
+            - name: tcp-19080
+              containerPort: 19080
+            - name: tcp-19180
+              containerPort: 19180
+            - name: udp-19150
+              containerPort: 19150
+              protocol: UDP
+          env:
+            - name: BS_NUM_WORKER
+              value: "${BS_NUM_WORKER}"
+            - name: BSCONFIG_KEYSTORE_DIR
+              value: "${BSCONFIG_KEYSTORE_DIR}"
+            - name: BSCONFIG_SECRET_TEXT
+              valueFrom:
+                secretKeyRef:
+                  name: bigstream-secret
+                  key: bsSecret
+          volumeMounts:
+            - name: bigstream-data
+              mountPath: /var/bigstream/data
+            - name: acl-config
+              mountPath: /app/node-bigstream/conf/acl.json
+              subPath: acl.json
+      volumes:
+        - name: bigstream-data
+          persistentVolumeClaim:
+            claimName: bigstream-data
+        - name: acl-config
+          configMap:
+            name: bigstream-acl
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bigstream
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: bigstream
+spec:
+  selector:
+    app: bigstream
+  ports:
+    - name: tcp-19980
+      port: 19980
+      targetPort: 19980
+      protocol: TCP
+    - name: tcp-19080
+      port: 19080
+      targetPort: 19080
+      protocol: TCP
+    - name: tcp-19180
+      port: 19180
+      targetPort: 19180
+      protocol: TCP
+    - name: udp-19150
+      port: 19150
+      targetPort: 19150
+      protocol: UDP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        app.kubernetes.io/name: bsmain
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:${REDIS_TAG}
+          args:
+            - redis-server
+            - --appendonly
+            - "yes"
+          ports:
+            - name: redis
+              containerPort: 6379
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-server
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: redis
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+        app.kubernetes.io/name: bsmain
+        app.kubernetes.io/component: rabbitmq
+    spec:
+      hostname: rabbitmq-server
+      containers:
+        - name: rabbitmq
+          image: igridproject/rabbitmq:mqtt
+          args:
+            - rabbitmq-server
+            - --hostname
+            - rabbitmq-server
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: mqtt
+              containerPort: 1883
+            - name: ws
+              containerPort: 15675
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-server
+  labels:
+    app.kubernetes.io/name: bsmain
+    app.kubernetes.io/component: rabbitmq
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: mqtt
+      port: 1883
+      targetPort: 1883
+    - name: ws
+      port: 15675
+      targetPort: 15675
